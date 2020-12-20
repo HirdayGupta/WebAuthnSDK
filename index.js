@@ -1,3 +1,5 @@
-function Main(value) {
+function Main(id) {
     console.log(value)
 }
+
+module.exports.Main = Main
