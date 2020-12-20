@@ -1,5 +1,5 @@
 function Main(id) {
-    console.log(value)
+    console.log(id)
 }
 
 module.exports.Main = Main
