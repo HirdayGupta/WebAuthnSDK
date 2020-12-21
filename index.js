@@ -5,6 +5,18 @@ export default function ZeroPass(apiKey) {
     }
 }
 
+function myResolve() {
+    return {
+        success: true
+    }
+}
+
+function myReject() {
+    return {
+        success: false
+    }
+}
+
 function b64enc(buf) {
     return base64js.fromByteArray(buf)
                    .replace(/\+/g, "-")
@@ -27,7 +39,7 @@ function hexEncode(buf) {
 }
 
 async function fetch_json(url, options) {
-    const BASE_URL = "http://api.zeropass.co/internal"
+    const BASE_URL = "https://api.zeropass.co/internal"
     let final_url = BASE_URL + url
     const response = await fetch(final_url, options);
     const body = await response.json();

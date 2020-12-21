@@ -1,6 +1,6 @@
 {
   "name": "webauthnsdk",
-  "version": "1.0.2",
+  "version": "1.0.4",
   "description": "Use this NPM package to integrate with ZeroPass API",
   "main": "index.js",
   "scripts": {
