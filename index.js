@@ -1,19 +1,12 @@
+const base64js = require("base64-js")
+
 export default function ZeroPass(apiKey) {
     this.key = apiKey
     this.register = function(user) {
-        didClickRegister(user)
+        return didClickRegister(user)
     }
-}
-
-function myResolve() {
-    return {
-        success: true
-    }
-}
-
-function myReject() {
-    return {
-        success: false
+    this.login = function(user) {
+        return didClickLogin(user)
     }
 }
 
@@ -111,14 +104,12 @@ const didClickRegister = async (user) => {
     try {
         assertionValidationResponse = await postNewAssertionToServer(newAssertionForServer);
     } catch (err) {
-        return console.error("Server validation of credential failed:", err);
+        throw new Error("Error registering the user!")
     }
 
-    // reload the page after a successful result
-    // window.location.reload();
-    // document.querySelector('#register_status').innerHTML = "User successfully registered!";
-
-    console.log("success!")
+    return {
+        success: true
+    }
 }
 
 
@@ -210,6 +201,135 @@ const postNewAssertionToServer = async (credentialDataForServer) => {
     console.log(formData)
     return await fetch_json(
         `/validate_registration_credentials?challenge=${g_challenge}&ukey=${g_ukey}&username=${g_username}&display_name=${g_display_name}`, {
+        method: "POST",
+        body: formData
+    });
+}
+
+// Login User
+
+const didClickLogin = async (user) => {
+    // gather the data in the form
+    const formData = new FormData()
+    formData.set("username", user.username)
+
+    // post the login data to the server to retrieve the PublicKeyCredentialRequestOptions
+    let credentialCreateOptionsFromServer;
+    try {
+        credentialRequestOptionsFromServer = await getCredentialRequestOptionsFromServer(formData);
+    } catch (err) {
+        return console.error("Error when getting request options from server:", err);
+    }
+
+    // convert certain members of the PublicKeyCredentialRequestOptions into
+    // byte arrays as expected by the spec.
+    const transformedCredentialRequestOptions = transformCredentialRequestOptions(
+        credentialRequestOptionsFromServer);
+
+    // request the authenticator to create an assertion signature using the
+    // credential private key
+    let assertion;
+    try {
+        assertion = await navigator.credentials.get({
+            publicKey: transformedCredentialRequestOptions,
+        });
+    } catch (err) {
+        return console.error("Error when creating credential:", err);
+    }
+
+    // we now have an authentication assertion! encode the byte arrays contained
+    // in the assertion data as strings for posting to the server
+    const transformedAssertionForServer = transformAssertionForServer(assertion);
+
+    // post the assertion to the server for verification.
+    let response;
+    try {
+        response = await postAssertionToServer(transformedAssertionForServer);
+    } catch (err) {
+        throw new Error("Error logging in the user!")
+    }
+
+
+    return {
+        success: true
+    }
+};
+
+/**
+ * Get PublicKeyCredentialRequestOptions for this user from the server
+ * formData of the registration form
+ * @param {FormData} formData
+ */
+const getCredentialRequestOptionsFromServer = async (formData) => {
+    let resp = await fetch_json(
+        "/generate_login_credentials",
+        {
+            method: "POST",
+            body: formData
+        }
+    );
+    console.log(resp);
+    g_challenge = resp.challenge;
+    return resp.publicKeyCredentialRequestOptions;
+}
+
+const transformCredentialRequestOptions = (credentialRequestOptionsFromServer) => {
+    let {challenge, allowCredentials} = credentialRequestOptionsFromServer;
+
+    challenge = Uint8Array.from(
+        atob(challenge.replace(/\_/g, "/").replace(/\-/g, "+")), c => c.charCodeAt(0));
+
+    allowCredentials = allowCredentials.map(credentialDescriptor => {
+        let {id} = credentialDescriptor;
+        id = id.replace(/\_/g, "/").replace(/\-/g, "+");
+        id = Uint8Array.from(atob(id), c => c.charCodeAt(0));
+        return Object.assign({}, credentialDescriptor, {id});
+    });
+
+    const transformedCredentialRequestOptions = Object.assign(
+        {},
+        credentialRequestOptionsFromServer,
+        {challenge, allowCredentials});
+
+    return transformedCredentialRequestOptions;
+};
+
+
+
+/**
+ * Encodes the binary data in the assertion into strings for posting to the server.
+ * @param {PublicKeyCredential} newAssertion
+ */
+const transformAssertionForServer = (newAssertion) => {
+    const authData = new Uint8Array(newAssertion.response.authenticatorData);
+    const clientDataJSON = new Uint8Array(newAssertion.response.clientDataJSON);
+    const rawId = new Uint8Array(newAssertion.rawId);
+    const sig = new Uint8Array(newAssertion.response.signature);
+    const assertionClientExtensions = newAssertion.getClientExtensionResults();
+
+    return {
+        id: newAssertion.id,
+        rawId: b64enc(rawId),
+        type: newAssertion.type,
+        authData: b64RawEnc(authData),
+        clientData: b64RawEnc(clientDataJSON),
+        signature: hexEncode(sig),
+        assertionClientExtensions: JSON.stringify(assertionClientExtensions)
+    };
+};
+
+/**
+ * Post the assertion to the server for validation and logging the user in.
+ * @param {Object} assertionDataForServer
+ */
+const postAssertionToServer = async (assertionDataForServer) => {
+    const formData = new FormData();
+    Object.entries(assertionDataForServer).forEach(([key, value]) => {
+        formData.set(key, value);
+    });
+
+    return await fetch_json(
+        `/validate_login_credentials?challenge=${g_challenge}`, {
         method: "POST",
         body: formData
     });

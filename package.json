@@ -1,6 +1,6 @@
 {
   "name": "webauthnsdk",
-  "version": "1.0.4",
+  "version": "1.0.7",
   "description": "Use this NPM package to integrate with ZeroPass API",
   "main": "index.js",
   "scripts": {
@@ -15,5 +15,8 @@
   "bugs": {
     "url": "https://github.com/HirdayGupta/WebAuthnSDK/issues"
   },
-  "homepage": "https://github.com/HirdayGupta/WebAuthnSDK#readme"
+  "homepage": "https://github.com/HirdayGupta/WebAuthnSDK#readme",
+  "dependencies": {
+    "base64-js": "^1.5.1"
+  }
 }
